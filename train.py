@@ -85,8 +85,29 @@ if ddp:
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])
     ddp_world_size = int(os.environ['WORLD_SIZE'])
+    
+    # Validate that the requested GPU exists
+    num_gpus = torch.cuda.device_count()
+    cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', 'not set')
+    
+    if ddp_local_rank >= num_gpus:
+        raise RuntimeError(
+            f"\n{'='*80}\n"
+            f"GPU CONFIGURATION ERROR\n"
+            f"{'='*80}\n"
+            f"LOCAL_RANK:           {ddp_local_rank}\n"
+            f"Available GPUs:       {num_gpus}\n"
+            f"CUDA_VISIBLE_DEVICES: {cuda_visible}\n"
+            f"RANK:                 {ddp_rank}\n"
+            f"WORLD_SIZE:           {ddp_world_size}\n"
+            f"{'='*80}\n"
+            f"The requested LOCAL_RANK ({ddp_local_rank}) exceeds the number of available GPUs ({num_gpus}).\n"
+            f"Please ensure --nproc_per_node does not exceed the number of GPUs available.\n"
+            f"{'='*80}\n"
+        )
+    
     device = f'cuda:{ddp_local_rank}'
-    torch.cuda.set_device(device)
+    torch.cuda.set_device(ddp_local_rank)
     master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
     seed_offset = ddp_rank # each process gets a different seed
     # world_size number of processes will be training simultaneously, so we can scale
