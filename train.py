@@ -85,6 +85,16 @@ if ddp:
     ddp_rank = int(os.environ['RANK'])
     ddp_local_rank = int(os.environ['LOCAL_RANK'])
     ddp_world_size = int(os.environ['WORLD_SIZE'])
+    
+    # Validate that the requested GPU exists
+    num_gpus = torch.cuda.device_count()
+    if ddp_local_rank >= num_gpus:
+        raise RuntimeError(
+            f"LOCAL_RANK={ddp_local_rank} but only {num_gpus} GPU(s) available on this node. "
+            f"Please ensure that the number of processes per node (--nproc_per_node) "
+            f"does not exceed the number of available GPUs."
+        )
+    
     device = f'cuda:{ddp_local_rank}'
     torch.cuda.set_device(ddp_local_rank)
     master_process = ddp_rank == 0 # this process will do logging, checkpointing etc.
