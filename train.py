@@ -88,11 +88,22 @@ if ddp:
     
     # Validate that the requested GPU exists
     num_gpus = torch.cuda.device_count()
+    cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', 'not set')
+    
     if ddp_local_rank >= num_gpus:
         raise RuntimeError(
-            f"LOCAL_RANK={ddp_local_rank} but only {num_gpus} GPU(s) available on this node. "
-            f"Please ensure that the number of processes per node (--nproc_per_node) "
-            f"does not exceed the number of available GPUs."
+            f"\n{'='*80}\n"
+            f"GPU CONFIGURATION ERROR\n"
+            f"{'='*80}\n"
+            f"LOCAL_RANK:           {ddp_local_rank}\n"
+            f"Available GPUs:       {num_gpus}\n"
+            f"CUDA_VISIBLE_DEVICES: {cuda_visible}\n"
+            f"RANK:                 {ddp_rank}\n"
+            f"WORLD_SIZE:           {ddp_world_size}\n"
+            f"{'='*80}\n"
+            f"The requested LOCAL_RANK ({ddp_local_rank}) exceeds the number of available GPUs ({num_gpus}).\n"
+            f"Please ensure --nproc_per_node does not exceed the number of GPUs available.\n"
+            f"{'='*80}\n"
         )
     
     device = f'cuda:{ddp_local_rank}'
