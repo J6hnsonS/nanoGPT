@@ -6,6 +6,7 @@ from tqdm import tqdm
 import numpy as np
 import tiktoken
 from datasets import load_dataset # huggingface datasets
+import pickle
 
 # number of workers in .map() call
 # good number to use is ~order number of cpu cores // 2
@@ -19,8 +20,38 @@ num_proc_load_dataset = num_proc
 enc = tiktoken.get_encoding("gpt2")
 
 if __name__ == '__main__':
-    # takes 54GB in huggingface .cache dir, about 8M documents (8,013,769)
-    dataset = load_dataset("openwebtext", num_proc=num_proc_load_dataset)
+    # Try multiple dataset sources in order of preference
+    dataset = None
+    dataset_sources = [
+        "Skylion007/openwebtext",  # Most commonly available mirror
+        "openwebtext",              # Original (deprecated)
+        "stas/openwebtext-10k",     # Small test version
+    ]
+    
+    for source in dataset_sources:
+        try:
+            print(f"Trying to load dataset from: {source}")
+            # takes 54GB in huggingface .cache dir, about 8M documents (8,013,769)
+            dataset = load_dataset(source, num_proc=num_proc_load_dataset)
+            print(f"✓ Successfully loaded dataset from: {source}")
+            break
+        except Exception as e:
+            print(f"✗ Failed to load from {source}: {e}")
+            continue
+    
+    if dataset is None:
+        print("\n" + "="*80)
+        print("ERROR: Could not load OpenWebText dataset from any source")
+        print("="*80)
+        print("All attempted sources failed. You have two options:")
+        print()
+        print("1. Download the dataset manually and use prepare_offline.py")
+        print("   See OFFLINE_SETUP.md for instructions")
+        print()
+        print("2. Use a smaller dataset for testing:")
+        print("   cd ../shakespeare && python prepare.py")
+        print("="*80)
+        raise RuntimeError("Failed to load dataset from any source")
 
     # owt by default only contains the 'train' split, so create a test split
     split_dataset = dataset["train"].train_test_split(test_size=0.0005, seed=2357, shuffle=True)
@@ -79,3 +110,15 @@ if __name__ == '__main__':
 
     # to read the bin files later, e.g. with numpy:
     # m = np.memmap('train.bin', dtype=np.uint16, mode='r')
+    
+    # save metadata
+    meta = {
+        'vocab_size': 50257,  # GPT-2 vocab size
+    }
+    meta_path = os.path.join(os.path.dirname(__file__), 'meta.pkl')
+    with open(meta_path, 'wb') as f:
+        pickle.dump(meta, f)
+    print(f"✓ Saved metadata to {meta_path}")
+    print(f"\n{'='*80}")
+    print("Dataset preparation complete!")
+    print(f"{'='*80}")
